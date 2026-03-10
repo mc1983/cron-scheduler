@@ -1,0 +1,18 @@
+## Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+*.egg-info/
+
+## Data / logs
+data/
+logs/
+
+## Node
+frontend/node_modules/
+frontend/dist/
+
+## OS
+.DS_Store
+Thumbs.db
