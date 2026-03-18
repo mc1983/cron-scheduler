@@ -72,13 +72,13 @@ async def sse_stream(request: Request):
         try:
             yield 'data: {"type": "connected"}\n\n'
             while True:
-                if await request.is_disconnected():
-                    break
                 try:
                     event = await asyncio.wait_for(q.get(), timeout=30.0)
                     yield f"data: {event}\n\n"
                 except asyncio.TimeoutError:
                     yield ": heartbeat\n\n"
+        except asyncio.CancelledError:
+            pass
         finally:
             notifier.unsubscribe(q)
 

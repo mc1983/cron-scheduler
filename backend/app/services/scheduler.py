@@ -46,6 +46,13 @@ def _load_jobs_from_db() -> None:
         for job in jobs:
             _register_job(job)
 
+        # Back-fill next_run_at from APScheduler in a single commit
+        for job in jobs:
+            if scheduler_instance:
+                aps_job = scheduler_instance.get_job(job.id)
+                if aps_job and aps_job.next_run_time:
+                    job.next_run_at = aps_job.next_run_time.isoformat()
+
         # Recover jobs stuck in running state (from a crash)
         stuck = db.query(Job).filter(Job.is_running == True).all()  # noqa: E712
         for job in stuck:
@@ -105,8 +112,6 @@ def _register_job(job) -> None:
             replace_existing=True,
             max_instances=max_instances,
         )
-        # Update next_run_at in DB
-        _update_next_run(job.id)
     except Exception as exc:
         logger.error(f"Failed to register job '{job.name}': {exc}")
 

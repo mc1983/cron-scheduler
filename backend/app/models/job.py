@@ -22,6 +22,7 @@ class Job(Base):
     command = Column(Text, nullable=False)
     cron_expression = Column(String, nullable=False)
     working_directory = Column(String, default="")
+    package_name = Column(String, default=None)     # original zip filename if uploaded
     environment_vars = Column(Text, default="{}")   # JSON string
     shell_type = Column(String, default="auto")     # auto|cmd|powershell|bash|sh
     timeout_seconds = Column(Integer, default=3600)
@@ -37,7 +38,8 @@ class Job(Base):
     updated_at = Column(String, default=now_utc, onupdate=now_utc)
 
     executions = relationship(
-        "JobExecution", back_populates="job", cascade="all, delete-orphan"
+        "JobExecution", back_populates="job", cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     def __repr__(self):

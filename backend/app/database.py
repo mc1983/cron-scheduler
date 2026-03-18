@@ -1,6 +1,7 @@
 import os
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
+from sqlalchemy.pool import NullPool
 from .config import settings
 
 
@@ -9,7 +10,8 @@ os.makedirs(os.path.dirname(os.path.abspath(settings.db_path)), exist_ok=True)
 
 engine = create_engine(
     settings.database_url,
-    connect_args={"check_same_thread": False},
+    connect_args={"check_same_thread": False, "timeout": 30},
+    poolclass=NullPool,
     echo=False,
 )
 
@@ -39,3 +41,17 @@ def get_db():
 def init_db():
     from .models import job  # noqa: F401 - registers models
     Base.metadata.create_all(bind=engine)
+    _migrate_db()
+
+
+def _migrate_db():
+    """Apply lightweight column-addition migrations for existing databases."""
+    migrations = [
+        ("jobs", "package_name", "TEXT DEFAULT NULL"),
+    ]
+    with engine.connect() as conn:
+        for table, column, col_def in migrations:
+            existing = [row[1] for row in conn.execute(text(f"PRAGMA table_info({table})"))]
+            if column not in existing:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {col_def}"))
+                conn.commit()
