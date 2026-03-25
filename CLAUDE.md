@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Environment
 
-- **Python**: `E:\MC\anaconda3\python.exe` (3.11)
+- **Python**: `E:\MC\anaconda3\python.exe` (3.8–3.10 compatible; tested on 3.11)
 - **Node.js**: `D:\Program Files\nodejs\` — must be added to PATH for npm commands in bash:
   ```bash
   PATH="/d/Program Files/nodejs:$PATH" npm run dev
@@ -54,7 +54,7 @@ PATH="/d/Program Files/nodejs:$PATH" npm run lint
 
 Two independent processes in development; one process in production.
 
-- **Dev**: Backend on `:8000`, frontend dev server on `:5173` (Vite proxies `/api/*` → `:8000`)
+- **Dev**: Backend on `:8000`, frontend dev server on `:5173` (webpack-dev-server proxies `/api/*` → `:8000`)
 - **Production**: `npm run build` outputs to `frontend/dist/`. Backend detects this directory at startup and mounts it as static files, serving everything from `:8000`.
 
 ### Backend (`backend/app/`)
@@ -98,16 +98,18 @@ The FastAPI app wires together three layered concerns:
 
 ### Frontend (`frontend/src/`)
 
-- **Routing**: React Router v6 with three routes: `/` (Dashboard), `/jobs` (Jobs), `/executions` (Executions).
-- **Data fetching**: TanStack Query with `refetchInterval: 10000–15000` as polling fallback. All queries are invalidated on SSE events via `useSSE` hook (`hooks/useSSE.ts`).
-- **SSE**: `useSSE` opens a native `EventSource('/api/v1/events')` and calls `queryClient.invalidateQueries()` on `execution_started` / `execution_finished` events. Auto-reconnects after 5s on error.
-- **API client**: Axios instance in `api/client.ts` with `baseURL: '/api/v1'`. Error interceptor unwraps `response.data.detail` into a plain `Error`.
-- **Styling**: Single `styles.css` file (dark theme, CSS custom properties). No component library or Tailwind — all styles are hand-written classes.
-- **No `index.css`**: The Vite scaffold's `index.css` import in `main.tsx` is commented out; `styles.css` is imported in `App.tsx` instead.
+- **Build tool**: Vue CLI 5 (`@vue/cli-service`) with webpack. Supports Node 16 and Node 24. Config in `vue.config.js`.
+- **Framework**: Vue 3 (`<script setup>` Composition API). No TypeScript — plain JS throughout.
+- **Routing**: Vue Router 4 with three routes: `/` (Dashboard), `/jobs` (Jobs), `/executions` (Executions). Router in `main.js`.
+- **Data fetching**: Plain `ref`/`watch`/`setInterval` polling (10000–15000ms). No TanStack Query.
+- **SSE**: `composables/useSSE.js` opens `EventSource('/api/v1/events')`; on `execution_started`/`execution_finished`, calls `emitSSEUpdate()` from `sseEvents.js` (simple Set-based pub/sub). Pages subscribe via `onSSEUpdate()`. Auto-reconnects after 5s.
+- **API client**: Axios instance in `api/client.js` with `baseURL: '/api/v1'`. Error interceptor unwraps `response.data.detail` into a plain `Error`.
+- **Styling**: Single `styles.css` file (dark theme, CSS custom properties). No component library or Tailwind — all styles are hand-written classes. Imported in `main.js`.
+- **HTML entry**: `public/index.html` (Vue CLI convention).
 
 ### Key data flows
 
-**Scheduled execution**: APScheduler fires → `_make_job_fn` closure → `executor.run_job()` in thread → subprocess → DB update → `notifier.broadcast()` → SSE queues → frontend invalidates queries → UI refreshes.
+**Scheduled execution**: APScheduler fires → `_make_job_fn` closure → `executor.run_job()` in thread → subprocess → DB update → `notifier.broadcast()` → SSE queues → `emitSSEUpdate()` → page composables refetch → UI refreshes.
 
 **Manual trigger**: `POST /jobs/{id}/run` → `scheduler.trigger_now()` adds a `date` job → same path as above.
 

@@ -7,6 +7,7 @@ import signal
 import subprocess
 import uuid
 from datetime import datetime, timezone
+from typing import Dict, List
 
 from sqlalchemy.orm import Session
 
@@ -17,10 +18,10 @@ logger = logging.getLogger(__name__)
 
 MAX_OUTPUT_BYTES = 1 * 1024 * 1024  # 1 MB per stream
 
-_running_procs: dict[str, subprocess.Popen] = {}  # execution_id -> Popen
+_running_procs: Dict[str, subprocess.Popen] = {}  # execution_id -> Popen
 
 
-def _build_command(job: Job) -> list[str]:
+def _build_command(job: Job) -> List[str]:
     """Build the platform-appropriate command list."""
     cmd = job.command
     shell = job.shell_type

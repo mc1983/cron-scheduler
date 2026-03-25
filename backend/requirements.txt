@@ -1,8 +1,11 @@
 fastapi>=0.111.0
 uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9
 apscheduler>=3.10.0
 sqlalchemy>=2.0.0
-pydantic>=2.7.0
-pydantic-settings>=2.2.0
+# pydantic 2.11+ dropped Python 3.8 support; cap at <2.11 for 3.8 compatibility
+pydantic>=2.7.0,<2.11.0
+# pydantic-settings 2.8+ follows pydantic's Python version policy
+pydantic-settings>=2.2.0,<2.8.0
 python-dotenv>=1.0.0
 croniter>=2.0.0

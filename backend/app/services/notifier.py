@@ -2,12 +2,12 @@
 import asyncio
 import json
 import logging
-from typing import Set
+from typing import Optional, Set
 
 logger = logging.getLogger(__name__)
 
 _queues: Set[asyncio.Queue] = set()
-_loop: asyncio.AbstractEventLoop | None = None
+_loop: Optional[asyncio.AbstractEventLoop] = None
 
 
 def set_event_loop(loop: asyncio.AbstractEventLoop) -> None:
