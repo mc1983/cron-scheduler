@@ -254,6 +254,11 @@ button { cursor: pointer; font-size: 14px; font-family: inherit; }
 .env-key { max-width: 160px; }
 .env-val { flex: 1; }
 
+.zip-upload-area { display: flex; flex-direction: column; gap: 6px; }
+.zip-file-input { background: var(--surface2); border: 1px dashed var(--border); border-radius: var(--radius); padding: 8px; color: var(--text); font-size: 13px; cursor: pointer; }
+.zip-file-input:hover { border-color: var(--accent); }
+.zip-current { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
 .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
 .form-error { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); color: var(--red); padding: 10px 14px; border-radius: var(--radius); font-size: 13px; }
 .confirm-message { font-size: 15px; color: var(--text); margin-bottom: 20px; line-height: 1.5; }

@@ -72,6 +72,7 @@ class JobResponse(BaseModel):
     command: str
     cron_expression: str
     working_directory: str
+    package_name: Optional[str]
     environment_vars: Dict[str, str]
     shell_type: str
     timeout_seconds: int

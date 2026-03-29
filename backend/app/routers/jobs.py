@@ -1,10 +1,18 @@
 import json
+import logging
+import os
+import shutil
+import tempfile
+import zipfile
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
+logger = logging.getLogger(__name__)
+
+from ..config import settings
 from ..database import get_db
 from ..models.job import Job
 from ..schemas.job import JobCreate, JobUpdate, JobResponse, JobListResponse
@@ -121,8 +129,78 @@ def update_job(job_id: str, payload: JobUpdate, db: Session = Depends(get_db)):
 def delete_job(job_id: str, db: Session = Depends(get_db)):
     job = _get_job_or_404(job_id, db)
     scheduler_svc.remove_job(job.id)
+    if job.package_name:
+        job_dir = os.path.abspath(os.path.join(settings.upload_dir, job_id))
+        shutil.rmtree(job_dir, ignore_errors=True)
     db.delete(job)
     db.commit()
+
+
+def _do_extract(contents: bytes, job_dir: str) -> None:
+    """Extract zip bytes into job_dir. Runs in a thread-pool worker."""
+    if os.path.exists(job_dir):
+        shutil.rmtree(job_dir)
+    os.makedirs(job_dir)
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp:
+            tmp.write(contents)
+            tmp_path = tmp.name
+        with zipfile.ZipFile(tmp_path, "r") as zf:
+            zf.extractall(job_dir)
+    except:
+        shutil.rmtree(job_dir, ignore_errors=True)
+        raise
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
+@router.post("/{job_id}/upload", response_model=JobResponse)
+def upload_job_package(
+    job_id: str,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    job = _get_job_or_404(job_id, db)
+
+    if not (file.filename or "").lower().endswith(".zip"):
+        raise HTTPException(status_code=400, detail="Only ZIP files are supported")
+
+    job_dir = os.path.abspath(os.path.join(settings.upload_dir, job_id))
+
+    # file.file is the underlying SpooledTemporaryFile — seek/read synchronously.
+    file.file.seek(0)
+    contents = file.file.read()
+
+    if not contents:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty — python-multipart may not be installed")
+
+    logger.info(f"Uploading package for job {job_id}: {file.filename!r} ({len(contents)} bytes) → {job_dir}")
+
+    try:
+        _do_extract(contents, job_dir)
+    except zipfile.BadZipFile:
+        raise HTTPException(status_code=400, detail="Invalid or corrupt ZIP file")
+    except Exception as exc:
+        logger.exception(f"ZIP extraction failed for job {job_id}")
+        raise HTTPException(status_code=500, detail=f"Failed to extract ZIP: {exc}")
+
+    job.working_directory = job_dir
+    job.package_name = file.filename
+    job.updated_at = datetime.now(timezone.utc).isoformat()
+    db.commit()
+    db.refresh(job)
+
+    logger.info(f"Job {job_id} working_directory set to {job_dir!r}")
+
+    # Re-register so the updated working_directory takes effect immediately
+    scheduler_svc.remove_job(job.id)
+    if job.is_enabled:
+        scheduler_svc.add_job(job)
+        _sync_next_run(job, db)
+
+    return _job_to_response(job)
 
 
 @router.post("/{job_id}/run", response_model=dict)

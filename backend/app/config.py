@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     log_retention_days: int = 30
     max_concurrent_jobs: int = 10
     cors_origins: str = "http://localhost:5173,http://localhost:3000,http://localhost:8000"
+    upload_dir: str = "./data/job_files"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     # Startup
     init_db()
+    os.makedirs(settings.upload_dir, exist_ok=True)
     notifier.set_event_loop(asyncio.get_event_loop())
     scheduler_svc.start()
     logger.info("Cron Scheduler service started")
